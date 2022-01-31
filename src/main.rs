@@ -7,12 +7,13 @@ use reqwest;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
+		println!("Server is running on port {}", get_port());
 		let cors = Cors::default().allow_any_origin();
         App::new()
             .wrap(cors)
             .route("/{url:.*}", web::get().to(cors_proxy_get))
     })
-		.bind(("127.0.0.1", get_port()))?
+		.bind(("0.0.0.0", get_port()))?
 		.run()
 		.await;
 
