@@ -1,5 +1,5 @@
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App, HttpServer, HttpRequest, Responder};
 use reqwest;
 
 
@@ -11,7 +11,7 @@ async fn main() -> std::io::Result<()> {
 		let cors = Cors::default().allow_any_origin();
         App::new()
             .wrap(cors)
-            .route("/{url:.*}", web::get().to(cors_proxy_get))
+            .route("/{path:.*}", web::get().to(cors_proxy_get))
     })
 		.bind(("0.0.0.0", get_port()))?
 		.run()
@@ -20,10 +20,14 @@ async fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn cors_proxy_get(url: web::Path<String>) -> String {
+async fn cors_proxy_get(request: HttpRequest) -> impl Responder {
+	// Removing first slash from relative path
+	let request_path = &request.path()[1..request.path().len() - 1];
+	let url = format!("{}?{}", request_path, request.query_string());
+
 	// TODO: make it better 
 	println!("Requesting url: {}", &url);
-    reqwest::get(url.as_str())
+    reqwest::get(url)
         .await
         .expect("mslolg")
         .text()
