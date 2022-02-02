@@ -1,5 +1,5 @@
 use actix_cors::Cors;
-use actix_web::{web, App, HttpRequest, HttpServer, Responder};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use reqwest;
 
 #[allow(unused_must_use)]
@@ -10,7 +10,8 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default().allow_any_origin();
         App::new()
             .wrap(cors)
-            .route("/{path:.*}", web::get().to(cors_proxy_get))
+            .route("/", web::get().to(|| HttpResponse::Ok().body("Usage: GET /URL")))
+            .route("/{path:.+}", web::get().to(cors_proxy_get))
     })
     .bind(("0.0.0.0", get_port()))?
     .run()
@@ -28,10 +29,10 @@ async fn cors_proxy_get(request: HttpRequest) -> impl Responder {
     println!("Requesting url: {}", &url);
     reqwest::get(url)
         .await
-        .expect("mslolg")
+        .expect("Some wrong url or server or client")
         .text()
         .await
-        .expect("msg")
+        .expect("response.text is wrong")
 }
 
 fn get_port() -> u16 {
