@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use actix_web::{web, FromRequest, HttpRequest, Responder};
+use actix_web::{web, FromRequest, HttpRequest, HttpResponse, HttpResponseBuilder};
 use reqwest;
 use serde_json::Value;
 
 pub struct CorsProxy;
 
 impl CorsProxy {
-    pub async fn get(request: HttpRequest) -> impl Responder {
+    pub async fn get(request: HttpRequest) -> HttpResponse {
         CorsProxy::new().request(request).await
     }
 
-    pub async fn post(request: HttpRequest) -> impl Responder {
+    pub async fn post(request: HttpRequest) -> HttpResponse {
         CorsProxy::new().request(request).await
     }
 
@@ -20,7 +20,7 @@ impl CorsProxy {
         CorsProxy {}
     }
 
-    async fn request(self, request: HttpRequest) -> impl Responder {
+    async fn request(self, request: HttpRequest) -> HttpResponse {
         let client = reqwest::Client::new();
 
         let url = self.get_url_from_request(&request);
@@ -28,14 +28,15 @@ impl CorsProxy {
             let actix_headermap = request.headers().to_owned();
             let mut hashmap = actix_headermap_to_hashmap(&actix_headermap);
 
-			hashmap.remove("host"); // removing host header
-			hashmap.remove("referer"); // removing referer header
-			hashmap.remove("origin"); // removing origin header
-			hashmap.remove("accept-encoding"); // removing accept-encoding header
+            hashmap.remove("host"); // removing host header
+            hashmap.remove("referer"); // removing referer header
+            hashmap.remove("origin"); // removing origin header
+            hashmap.remove("accept-encoding"); // removing accept-encoding header
+            hashmap.remove("sec-fetch-site"); // removing sec-fetch-site header
 
             reqwest_headermap_from_hashmap(hashmap.iter())
         };
-		println!("\n{:?}", &headers);
+        println!("\n{:?}", &headers);
 
         let request_builder = match request.method().as_str() {
             "GET" => client.get(&url),
@@ -53,14 +54,16 @@ impl CorsProxy {
         };
 
         println!("Requesting url: {}", url);
-        request_builder
-			.headers(headers) // adding headers
+        let response = request_builder
+            .headers(headers) // adding headers
             .send()
             .await
-            .expect("Some wrong url or server or client")
-            .text()
-            .await
-            .expect("response.text is wrong")
+            .expect("Some wrong url or server or client");
+
+		// Constructing response
+        let code = response.status();
+        let body = response.text().await.expect("response.text is wrong");
+        HttpResponseBuilder::new(code).body(body)
     }
 
     fn get_url_from_request(self, request: &HttpRequest) -> String {
