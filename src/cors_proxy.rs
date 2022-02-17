@@ -1,29 +1,33 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use actix_web::{web, FromRequest, HttpRequest, HttpResponse, HttpResponseBuilder};
+use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder};
 use reqwest;
-use serde_json::Value;
 
 pub struct CorsProxy;
 
 impl CorsProxy {
     pub async fn get(request: HttpRequest) -> HttpResponse {
-        CorsProxy::new().request(request).await
+        CorsProxy::new().request(request, None).await
     }
 
-    pub async fn post(request: HttpRequest) -> HttpResponse {
-        CorsProxy::new().request(request).await
+    pub async fn post(request: HttpRequest, body: String) -> HttpResponse {
+        CorsProxy::new().request(request, Some(body)).await
     }
 
     pub(self) fn new() -> CorsProxy {
         CorsProxy {}
     }
 
-    async fn request(self, request: HttpRequest) -> HttpResponse {
+    async fn request(self, request: HttpRequest, body: Option<String>) -> HttpResponse {
         let client = reqwest::Client::new();
 
-        let url = self.get_url_from_request(&request);
+        let url = {
+            // Removing first slash from relative path
+            let request_path = &request.path()[1..request.path().len()];
+            format!("{}?{}", request_path, request.query_string())
+        };
+
         let headers = {
             let actix_headermap = request.headers().to_owned();
             let mut hashmap = actix_headermap_to_hashmap(&actix_headermap);
@@ -33,23 +37,15 @@ impl CorsProxy {
             hashmap.remove("origin"); // removing origin header
             hashmap.remove("accept-encoding"); // removing accept-encoding header
             hashmap.remove("sec-fetch-site"); // removing sec-fetch-site header
+            hashmap.remove("sec-fetch-mode"); // removing sec-fetch-mode header
+            hashmap.remove("sec-fetch-dest"); // removing sec-fetch-dest header
 
             reqwest_headermap_from_hashmap(hashmap.iter())
         };
-        println!("\n{:?}", &headers);
 
         let request_builder = match request.method().as_str() {
             "GET" => client.get(&url),
-            "POST" => {
-                let bytes_json = web::Bytes::extract(&request)
-                    .await
-                    .expect("Error on extracting bytes from body");
-                let string_json = String::from_utf8(bytes_json.to_vec())
-                    .expect("Some wrong body encoding (it's invalid UTF-8)");
-                let json: Value =
-                    serde_json::from_str(string_json.as_str()).expect("Some wrong JSON");
-                client.post(&url).json(&json)
-            }
+            "POST" => client.post(&url).body(body.unwrap()),
             _ => unimplemented!("Method not allowed"),
         };
 
@@ -60,16 +56,10 @@ impl CorsProxy {
             .await
             .expect("Some wrong url or server or client");
 
-		// Constructing response
+        // Constructing response
         let code = response.status();
-        let body = response.text().await.expect("response.text is wrong");
+        let body = response.text().await.expect("Can't load response body");
         HttpResponseBuilder::new(code).body(body)
-    }
-
-    fn get_url_from_request(self, request: &HttpRequest) -> String {
-        // Removing first slash from relative path
-        let request_path = &request.path()[1..request.path().len()];
-        format!("{}?{}", request_path, request.query_string())
     }
 }
 

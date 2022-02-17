@@ -13,9 +13,12 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default().allow_any_origin();
         App::new()
             .wrap(cors)
-            .route("/", web::get().to(|| HttpResponse::Ok().body("Usage: GET/POST /URL")))
-            .route("/{path:.+}", web::get().to(CorsProxy::get))
-            .route("/{path:^http.+}", web::post().to(CorsProxy::post))
+            .route(
+                "/",
+                web::get().to(|| HttpResponse::Ok().body("Usage: GET/POST /URL")),
+            )
+            .route("/{path:http.+}", web::get().to(CorsProxy::get))
+            .route("/{path:http.+}", web::post().to(CorsProxy::post))
     })
     .bind(("0.0.0.0", get_port()))?
     .run()
@@ -23,7 +26,6 @@ async fn main() -> std::io::Result<()> {
 
     Ok(())
 }
-
 
 fn get_port() -> u16 {
     std::env::var("PORT")

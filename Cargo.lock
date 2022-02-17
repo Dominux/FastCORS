@@ -422,7 +422,6 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "reqwest",
- "serde_json",
 ]
 
 [[package]]
