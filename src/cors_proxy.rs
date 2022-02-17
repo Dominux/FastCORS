@@ -28,10 +28,10 @@ impl CorsProxy {
             let actix_headermap = request.headers().to_owned();
             let mut hashmap = actix_headermap_to_hashmap(&actix_headermap);
 
-			// Removing the HOST path
-			hashmap.remove("host");
-			hashmap.remove("Host");
-			hashmap.remove("HOST");
+			hashmap.remove("host"); // removing host header
+			hashmap.remove("referer"); // removing referer header
+			hashmap.remove("origin"); // removing origin header
+			hashmap.remove("accept-encoding"); // removing accept-encoding header
 
             reqwest_headermap_from_hashmap(hashmap.iter())
         };
