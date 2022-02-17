@@ -1,5 +1,5 @@
 # FastCORS
-##### Proxying GET-requests
+##### Proxying GET/POST requests
 
 <br>
 
