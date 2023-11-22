@@ -58,7 +58,7 @@ impl CorsProxy {
 
         // Constructing response
         let code = response.status();
-        let body = response.text().await.expect("Can't load response body");
+        let body = response.bytes().await.expect("Can't load response body");
         HttpResponseBuilder::new(code).body(body)
     }
 }
